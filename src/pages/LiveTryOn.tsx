@@ -1,25 +1,25 @@
-import { useState, useRef, useEffect } from "react";
-import { Camera, Square, Download } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Camera, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { products } from "@/data/products";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 export const LiveTryOn = () => {
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState<string>("");
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const overlayImageRef = useRef<HTMLImageElement>(null);
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
+  const [clothingImage, setClothingImage] = useState<HTMLImageElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const animationRef = useRef<number>();
+
+  useEffect(() => {
+    return () => {
+      stopCamera();
+    };
+  }, []);
 
   const startCamera = async () => {
     try {
@@ -27,18 +27,18 @@ export const LiveTryOn = () => {
         video: {
           width: { ideal: 1280 },
           height: { ideal: 720 },
-          facingMode: "user",
-        },
+          facingMode: "user"
+        }
       });
-
+      
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         streamRef.current = stream;
         setIsStreaming(true);
-        toast.success("Camera started!");
+        toast.success("Camera started");
         
         // Start rendering loop
-        requestAnimationFrame(drawFrame);
+        renderFrame();
       }
     } catch (error) {
       console.error("Error accessing camera:", error);
@@ -48,23 +48,40 @@ export const LiveTryOn = () => {
 
   const stopCamera = () => {
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
     }
     if (animationRef.current) {
       cancelAnimationFrame(animationRef.current);
     }
     setIsStreaming(false);
-    toast.success("Camera stopped");
+    toast.info("Camera stopped");
   };
 
-  const drawFrame = () => {
+  const handleProductSelect = (productId: string) => {
+    setSelectedProduct(productId);
+    const product = products.find(p => p.id === productId);
+    
+    if (product) {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        setClothingImage(img);
+        toast.success(`Selected ${product.title}`);
+      };
+      img.onerror = () => {
+        toast.error("Failed to load clothing image");
+      };
+      img.src = product.image;
+    }
+  };
+
+  const renderFrame = () => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
-    const overlayImage = overlayImageRef.current;
-
-    if (!video || !canvas || !isStreaming) return;
-
+    
+    if (!video || !canvas) return;
+    
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
@@ -76,51 +93,21 @@ export const LiveTryOn = () => {
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
     // Overlay clothing if selected
-    if (selectedProduct && overlayImage && overlayImage.complete) {
-      const clothingWidth = canvas.width * 0.6;
-      const clothingHeight = (overlayImage.height / overlayImage.width) * clothingWidth;
-      const x = (canvas.width - clothingWidth) / 2;
-      const y = canvas.height * 0.15; // Position at upper torso
+    if (clothingImage) {
+      // Simple overlay positioned at upper body
+      const overlayWidth = canvas.width * 0.5;
+      const overlayHeight = (clothingImage.height / clothingImage.width) * overlayWidth;
+      const x = (canvas.width - overlayWidth) / 2;
+      const y = canvas.height * 0.15;
 
-      ctx.globalAlpha = 0.8;
-      ctx.drawImage(overlayImage, x, y, clothingWidth, clothingHeight);
-      ctx.globalAlpha = 1.0;
+      ctx.save();
+      ctx.globalAlpha = 0.8; // Slight transparency for better blending
+      ctx.drawImage(clothingImage, x, y, overlayWidth, overlayHeight);
+      ctx.restore();
     }
 
-    animationRef.current = requestAnimationFrame(drawFrame);
+    animationRef.current = requestAnimationFrame(renderFrame);
   };
-
-  const captureSnapshot = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    canvas.toBlob((blob) => {
-      if (blob) {
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.download = "aura-live-tryon.png";
-        link.href = url;
-        link.click();
-        URL.revokeObjectURL(url);
-        toast.success("Snapshot captured!");
-      }
-    });
-  };
-
-  useEffect(() => {
-    return () => {
-      stopCamera();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (selectedProduct) {
-      const product = products.find((p) => p.id === selectedProduct);
-      if (product && overlayImageRef.current) {
-        overlayImageRef.current.src = product.image;
-      }
-    }
-  }, [selectedProduct]);
 
   return (
     <div className="min-h-screen py-12">
@@ -128,14 +115,14 @@ export const LiveTryOn = () => {
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold mb-4">Live Try-On</h1>
           <p className="text-muted-foreground text-lg">
-            See how clothing looks on you in real-time using your camera
+            See how clothes look on you in real-time
           </p>
         </div>
 
         <div className="grid md:grid-cols-3 gap-6 mb-8">
           <Card className="md:col-span-2">
             <CardContent className="p-6">
-              <div className="relative aspect-video bg-muted rounded-lg overflow-hidden">
+              <div className="relative bg-muted rounded-lg overflow-hidden aspect-video">
                 {isStreaming ? (
                   <>
                     <video
@@ -143,42 +130,34 @@ export const LiveTryOn = () => {
                       autoPlay
                       playsInline
                       muted
-                      className="absolute inset-0 w-full h-full object-cover hidden"
+                      className="hidden"
                     />
                     <canvas
                       ref={canvasRef}
-                      className="absolute inset-0 w-full h-full object-cover"
+                      className="w-full h-full object-contain"
                     />
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      className="absolute top-4 right-4"
+                      onClick={stopCamera}
+                    >
+                      <X className="h-5 w-5" />
+                    </Button>
                   </>
                 ) : (
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="text-center">
-                      <Camera className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+                  <div className="flex items-center justify-center h-full">
+                    <div className="text-center space-y-4">
+                      <Camera className="h-16 w-16 mx-auto text-muted-foreground" />
                       <p className="text-muted-foreground">
-                        Camera is off. Click start to begin.
+                        Click start to begin live try-on
                       </p>
+                      <Button onClick={startCamera}>
+                        <Camera className="mr-2 h-4 w-4" />
+                        Start Camera
+                      </Button>
                     </div>
                   </div>
-                )}
-              </div>
-
-              <div className="flex justify-center gap-4 mt-6">
-                {!isStreaming ? (
-                  <Button onClick={startCamera} size="lg">
-                    <Camera className="mr-2 h-5 w-5" />
-                    Start Camera
-                  </Button>
-                ) : (
-                  <>
-                    <Button onClick={stopCamera} variant="secondary" size="lg">
-                      <Square className="mr-2 h-5 w-5" />
-                      Stop Camera
-                    </Button>
-                    <Button onClick={captureSnapshot} size="lg">
-                      <Download className="mr-2 h-5 w-5" />
-                      Capture
-                    </Button>
-                  </>
                 )}
               </div>
             </CardContent>
@@ -186,10 +165,10 @@ export const LiveTryOn = () => {
 
           <Card>
             <CardContent className="p-6">
-              <h3 className="font-semibold mb-4">Select Clothing</h3>
-              <Select value={selectedProduct} onValueChange={setSelectedProduct}>
+              <h3 className="font-semibold mb-4">Select Product</h3>
+              <Select value={selectedProduct || ""} onValueChange={handleProductSelect}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Choose an item" />
+                  <SelectValue placeholder="Choose a product" />
                 </SelectTrigger>
                 <SelectContent>
                   {products.map((product) => (
@@ -201,37 +180,40 @@ export const LiveTryOn = () => {
               </Select>
 
               {selectedProduct && (
-                <div className="mt-4">
+                <div className="mt-6">
                   <img
-                    src={products.find((p) => p.id === selectedProduct)?.image}
-                    alt="Selected item"
-                    className="w-full rounded-lg"
+                    src={products.find(p => p.id === selectedProduct)?.image}
+                    alt="Selected product"
+                    className="w-full rounded-lg shadow-md"
                   />
-                  <p className="text-sm text-muted-foreground mt-2">
-                    This item will appear as an overlay on your video feed
+                  <p className="mt-3 font-medium">
+                    {products.find(p => p.id === selectedProduct)?.title}
+                  </p>
+                  <p className="text-2xl font-bold text-primary mt-1">
+                    ${products.find(p => p.id === selectedProduct)?.price}
                   </p>
                 </div>
               )}
 
               <div className="mt-6 p-4 bg-secondary/50 rounded-lg">
-                <h4 className="font-medium mb-2 text-sm">Tips:</h4>
-                <ul className="text-xs text-muted-foreground space-y-1">
-                  <li>• Ensure good lighting</li>
-                  <li>• Stand 2-3 feet from camera</li>
-                  <li>• Face the camera directly</li>
-                  <li>• Try different poses</li>
-                </ul>
+                <h4 className="font-medium mb-2">How it works:</h4>
+                <ol className="text-sm text-muted-foreground space-y-2 list-decimal list-inside">
+                  <li>Start your camera</li>
+                  <li>Select a product to try on</li>
+                  <li>Position yourself in frame</li>
+                  <li>See the clothing overlay in real-time</li>
+                </ol>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        <img
-          ref={overlayImageRef}
-          alt="Overlay"
-          className="hidden"
-          crossOrigin="anonymous"
-        />
+        <div className="text-center text-sm text-muted-foreground">
+          <p>
+            This is a basic real-time overlay. For more accurate fitting with pose detection, 
+            advanced ML models can be integrated.
+          </p>
+        </div>
       </div>
     </div>
   );
