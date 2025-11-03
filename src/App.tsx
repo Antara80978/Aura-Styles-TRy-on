@@ -8,7 +8,7 @@ import { Shop } from "./pages/Shop";
 import { Cart } from "./pages/Cart";
 import { Wishlist } from "./pages/Wishlist";
 import { TryOn } from "./pages/TryOn";
-import { LiveTryOn } from "./pages/LiveTryOn";
+import LiveTryOn from "./pages/LiveTryOn";
 import { Auth } from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import { useCart } from "./hooks/useCart";
@@ -49,6 +49,7 @@ const AppContent = () => {
   );
 };
 
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -62,5 +63,5 @@ const App = () => (
     </TooltipProvider>
   </QueryClientProvider>
 );
-
+ 
 export default App;
