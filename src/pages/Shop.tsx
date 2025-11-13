@@ -23,11 +23,11 @@ export const Shop = () => {
       <section className="relative py-20 overflow-hidden">
         <div className="absolute inset-0 bg-[var(--gradient-hero)]" />
         <div className="container relative z-10 text-center">
-          <h1 className="text-5xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+          <h1 className="text-5xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">
             Discover Your Aura
           </h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-8">
-            Premium fashion meets innovative technology. Try on any piece virtually before you buy.
+            Premium fashion meets innovative technology. Experience virtual try-on in 2 amazing ways!
           </p>
         </div>
       </section>
